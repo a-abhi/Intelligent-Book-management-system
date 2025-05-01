@@ -5,8 +5,8 @@ The Intelligent Book Management System is a cloud-based application that leverag
 
 ## 2. Business Requirements
 - Create a modular, scalable and maintainable book management system
-- System Should be able to help users to add, update retrive books from db.
-- Generate Summaries, recommend books based on user preferrences, manage and generate user review summary via open source AI model.
+- System Should be able to help users to add, update retrieve books from db
+- Generate Summaries, recommend books based on user preferences, manage and generate user review summary via open source AI model
 - Ensure secure access to the system via basic Auth
 - Support cloud deployment for global accessibility
 - Should be accessible via restfull API calls
@@ -16,10 +16,11 @@ The Intelligent Book Management System is a cloud-based application that leverag
 ### 3.1 Core Technologies
 - **Backend Framework**: FastAPI/Flask (Python)
 - **Database**: PostgreSQL
-- **AI Model**: Llama3 (local deployment)
+- **AI Model**: Llama3 (local deployment) or any open-source AI model
 - **Cloud Platform**: AWS
 - **Containerization**: Docker
 - **Version Control**: Git
+- **Caching**: Redis
 
 ### 3.2 Database Schema
 #### Books Table
@@ -29,6 +30,8 @@ The Intelligent Book Management System is a cloud-based application that leverag
 - genre
 - year_published
 - summary
+- created_at (Timestamp)
+- updated_at (Timestamp)
 
 #### Reviews Table
 - id (Primary Key)
@@ -36,6 +39,17 @@ The Intelligent Book Management System is a cloud-based application that leverag
 - user_id
 - review_text
 - rating
+- created_at (Timestamp)
+- updated_at (Timestamp)
+
+#### Users Table
+- id (Primary Key)
+- username
+- email
+- password_hash
+- role
+- created_at (Timestamp)
+- updated_at (Timestamp)
 
 ### 3.3 API Endpoints
 1. Book Management
@@ -48,11 +62,17 @@ The Intelligent Book Management System is a cloud-based application that leverag
 2. Review Management
    - POST /books/<id>/reviews - Add review for a book
    - GET /books/<id>/reviews - Get all reviews for the book
+   - GET /books/<id>/reviews/summary - Get review summary (This api for generating reviews summary)
 
 3. AI Features
    - GET /books/<id>/summary - Get book summary and aggregated rating for a book
    - GET /recommendations - Get personalized book recommendations based on user preferences
    - POST /generate-summary - Generate summary for given book content
+   
+
+4. User Management
+   - POST /auth/register - Register new user
+   
 
 ### 3.4 Asynchronous Programming
 - Implement asyn operation for db operations and AI model (sqlalchemy[asyncio] and asyncpg)
@@ -63,6 +83,8 @@ The Intelligent Book Management System is a cloud-based application that leverag
 - Encrypted database connections
 - Input validation and sanitization
 - Rate limiting for API endpoints
+- Password hashing and salting
+- Request validation middleware
 
 ## 4. Development Requirements
 
@@ -73,6 +95,8 @@ The Intelligent Book Management System is a cloud-based application that leverag
 - Proper package organization
 - SOLID principles implementation
 - Design Patterns
+- Service layer for business logic
+- Controller layer for request handling
 
 ### 4.2 Testing Requirements
 - Unit tests for all modules
@@ -87,6 +111,9 @@ The Intelligent Book Management System is a cloud-based application that leverag
 - Code documentation
 - Testing procedures
 - Architecture diagrams
+- Database schema documentation
+- API usage examples
+- Troubleshooting guide
 
 ## 5. Deployment Requirements
 
