@@ -1,160 +1,104 @@
 # Intelligent Book Management System - ERD & High-Level Design
 
 ## 1. ERD-HLD Abstract
-We're building a cloud-based Intelligent Book Management System that leverages AI to make book management smarter and more efficient. Think of it as your digital librarian that not only keeps track of books but also helps you discover new ones and understand them better through AI-powered features. The system will expose RESTful APIs for everything from user management to book recommendations, built with scalability and security in mind.
+The **Intelligent Book Management System** is a cloud-native, scalable microservices-based solution designed to manage books, reviews, recommendations, and content summarization using a generative AI model (ollama3). It provides RESTful APIs to add, retrieve, and manage books and their reviews, while also integrating ollama3 for AI-generated summaries and personalized recommendations. The system is intended to support high availability, modular deployment, and efficient data processing using asynchronous programming and modern DevOps practices.
 
 ## 2. Engineering Requirements
 
 ### 2.1 Functional Requirements
 
 #### 2.1.1 In-Scope Requirements
-1. Book Management
-   - CRUD operations for books (add, update, delete, and retrieve books)
-   - Store and manage book metadata (title, author, genre, publication year)
-   - Handle book summaries and their retrieval
-
-2. Review Management
-   - Let users add and manage their book reviews
-   - Retrieve and display book reviews with proper pagination
-
-3. AI Features
-   - Generate concise book summaries
-   - Create review summaries to give quick insights
-   - Provide personalized book recommendations
-
-4. User Management
-   - User registration and profile management
-   - Basic authentication
-   - Role-based access (admin vs regular users)
-
-5. API Endpoints
-   - RESTful API design following best practices
-   - Input validation and sanitization
-   - Proper error handling and meaningful messages
-   - Rate limiting to prevent abuse
+- Add, update, delete and retrieve books
+- Submit and fetch reviews
+- Generate personalized recommendations
+- Provide AI-powered summaries
+- Authenticate and authorize users
+- Log all user actions for auditing
 
 #### 2.1.2 Out-of-Scope Requirements
 1. User Interface
-   - Web frontend development
-   - Mobile application development
 2. Any other features not explicitly mentioned above
 
 ### 2.2 Non-Functional Requirements
 
-#### 2.2.1 Scalability
-- Support for horizontal scaling as user base grows
-- Database read replicas for better read performance
-- Redis caching for frequently accessed data
-- Load balancing to distribute traffic
+- **Performance**: Support up to 1000 requests/sec with average latency <300ms
+- **Scalability**: Microservices designed to scale horizontally
+- **Availability**: 99.9% uptime with automated restarts and health checks
+- **Security**: Basic authentication; encrypted connections
+- **Maintainability**: Modular service structure with unit/integration tests
+- **Extensibility**: New services can be added without major refactor
 
-#### 2.2.2 Security
-- Secure password hashing using bcrypt
-- Input validation and sanitization
-- Database encryption at rest
-- HTTPS for all API endpoints
+## 3. Back-of-the-Envelope Estimations
 
-#### 2.2.3 Maintainability
-- Clean, modular code structure
-- Comprehensive API documentation
-- Unit test coverage > 80%
-- Automated CI/CD pipeline
+These estimations are derived based on assumed traffic patterns and service usage:
 
-## 3. High-Level Design
+| Component          | Estimate                            | Assumptions                                      |
+|-------------------|-------------------------------------|--------------------------------------------------|
+| Books per day     | ~10,000 additions                   | 500 authors adding 20 books/day                  |
+| Reviews per day   | ~100,000                            | 10K users submitting 10 reviews/day              |
+| API RPS           | ~500–1000 requests/sec              | Assuming 50K DAUs with 1-2 requests/min each     |
+| Storage (1 yr)    | ~50GB for books + 100GB reviews     | Books: 2KB each; Reviews: 1KB × volume           |
+| AI Calls/Day      | ~50,000 summarization calls         | 50% reviews trigger summary generation           |
+| LLaMA3 Latency    | ~800ms–1.5s per summary             | Based on avg LLaMA3 generation time              |
 
-### 3.1 Component Diagram
-![alt text](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/architectureDiagram.jpg?raw=true)
+> Notes:
+> - PostgreSQL can handle these loads with connection pooling and read replicas.
+> - Shared Service is horizontally scalable for auth/log calls.
+> - AI summary caching reduces redundant generation calls significantly.
 
-### 3.2 Component Details
+## 4. High-Level Design
 
-#### 3.2.1 API Gateway Layer
-- **Request Validator**: Ensures all incoming requests are properly formatted and contain valid data
-- **Rate Limiter**: Prevents abuse by limiting requests per user/IP
-- **Load Balancer**: Distributes traffic across multiple instances
+### 4.1 Component Diagram
+![alt text](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/MicroserviceArchitecture.jpg?raw=true)
 
-#### 3.2.2 Application Layer
-- **Book Service**: Manages all book-related operations
-- **Review Service**: Handles review creation, updates, and retrieval
-- **AI Service**: Manages AI model operations and inference
-- **Auth Service**: Handles user authentication and session management
+### 4.2 Component Details
 
-#### 3.2.3 Data Layer
-- **PostgreSQL**: Our primary database for storing all structured data
-- **Redis Cache**: Handles caching of frequently accessed data
-- **AI Model Storage**: Stores and serves our AI models
+- **Book Service**: CRUD operations for books; calls Shared Service for auth + logging.
+- **Review Service**: Manage reviews, ratings; integrates with Shared Service.
+- **Recommendation Service**: Generates book suggestions; reads user preferences; checks auth.
+- **LLaMA3 AI Service**: Generate summaries, review synthesis.
+- **Shared Service**: Handles authentication, user management, and centralized logging.
 
-### 3.3 Workflows
+## 5 Workflows
 
-#### 3.3.1 Book Management Flow
-1. Client sends request to API Gateway
-2. Request is validated and authenticated
-3. Book Service processes the request
-4. Database operations are performed
-5. Response is returned to client
+### 5.1 Sequence Diagram
 
-#### 3.3.2 Review Management Flow
-1. Client submits a review
-2. Review Service processes the request
-3. Database is updated
-4. AI Service generates a summary if needed
-5. Response is returned to client
+![alt text](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/SequenceDiagram.jpg?raw=true)
 
-#### 3.3.3 AI Feature Flow
-1. Client requests a summary or recommendation
-2. AI Service processes the request
-3. Llama3 model generates the response
-4. Response is cached for future similar requests
-5. Response is returned to client
+### 5.2 Service Interaction (Sequence)
 
-### 3.4 Back of the Envelope Estimation
+1. Client hits API Gateway.
+2. API Gateway routes to target service (e.g., Book Service).
+3. Target service validates auth via Shared Service.
+4. Upon success, executes DB operations.
+5. Sends audit logs to Shared Service (async).
 
-#### 3.4.1 Load Estimation
-- Expected users: 1,000-5,000 (conservative estimate for POC)
-- Daily active users: ~20% = 200-1,000 users
-- Average requests per user per day: 10
-- Total daily requests: 2,000-10,000
-- Peak requests per second: ~5-10 (assuming 80/20 rule)
+## 6 Tech Stack
 
-#### 3.4.2 Storage Estimation
-- Books: 10,000 books × 50KB metadata = 500MB
-- Reviews: 50,000 reviews × 2KB = 100MB
-- User data: 5,000 users × 5KB = 25MB
-- AI models: ~2GB
-- Total storage: ~3GB (with 2x buffer = 6GB)
+| Layer           | Tech                                 |
+|-----------------|--------------------------------------|
+| API             | FastAPI (async)                      |
+| DB              | PostgreSQL (RDS on AWS)              |
+| AI Model        | LLaMA3 via OLLama / HuggingFace      |
+| Cloud Infra     | AWS ECS Fargate, S3, RDS, CloudWatch |
+| Async DB        | SQLAlchemy Async + asyncpg           |
+| Deployment      | Docker, Docker Compose, GitHub Actions |
+| Monitoring      | Prometheus + Grafana (optional)      |
 
-### 3.5 Scalability
 
-#### 3.5.1 Horizontal Scaling
-- Microservices architecture allows independent scaling
-- Load balancing across multiple instances
-- Auto-scaling based on CPU/memory metrics
+## 7 Scalability
 
-#### 3.5.2 Database Scaling
-- Read replicas for better read performance
-- Connection pooling to manage database connections
-- Query optimization and proper indexing
+- **Microservices**: Each domain (books, reviews, recommendations, AI, auth/logging) is isolated and can scale independently.
+- **DB Scaling**: Read replicas for PostgreSQL; consider partitioning large review tables.
+- **AI Model Scaling**: Run on separate CPU-enabled EC2 instances with queueing + caching.
+- **Async APIs**: All APIs use `async/await` to handle concurrent requests efficiently.
+- **Horizontal Scaling**: Each service container can scale using AWS ECS Fargate.
+- **CI/CD**: Auto-deploy on Git push using GitHub Actions + AWS CodeDeploy.
+- **Monitoring**: Prometheus + Grafana or CloudWatch for performance tracking.
 
-#### 3.5.3 Caching Strategy
-- Redis for caching frequent queries
-- Database query result caching
-- API response caching with proper TTL
+## 8. Future Enhancements
 
-### 3.6 Performance
-
-#### 3.6.1 Optimization Techniques
-- Database indexing on frequently queried fields
-- Query optimization and proper joins
-- Connection pooling to reduce overhead
-- Response caching for static data
-
-#### 3.6.2 Monitoring
-- Track key performance metrics
-- Monitor response times
-- Watch resource utilization
-- Track error rates and types
-
-### 3.7 Security
-
-#### 3.7.1 Authentication
-- Basic authentication
-- Password hashing
-- Role-based access
+- Implement **rate-limiting** and **caching layer** (e.g., Redis).
+- Move LLaMA3 summaries to **event-driven architecture** (e.g., SQS, Kafka).
+- Enable **streaming summaries** for long content using chunked responses.
+- Extend shared service with **role-based access control**, **audit logging**, and centralized **configuration management**.
