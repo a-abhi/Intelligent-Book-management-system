@@ -49,7 +49,7 @@ These estimations are derived based on assumed traffic patterns and service usag
 ## 4. High-Level Design
 
 ### 4.1 Component Diagram
-![alt text](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/MicroserviceArchitecture.jpg?raw=true)
+![alt text](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/MicroserviceArchitecture.jpeg?raw=true)
 
 ### 4.2 Component Details
 
@@ -63,7 +63,7 @@ These estimations are derived based on assumed traffic patterns and service usag
 
 ### 5.1 Sequence Diagram
 
-![alt text](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/SequenceDiagram.jpg?raw=true)
+![alt text](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/SequenceDiagram.jpeg?raw=true)
 
 ### 5.2 Service Interaction (Sequence)
 
