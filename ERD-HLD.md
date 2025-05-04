@@ -49,7 +49,7 @@ These estimations are derived based on assumed traffic patterns and service usag
 ## 4. High-Level Design
 
 ### 4.1 Component Diagram
-![alt text](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/MicroserviceArchitecture.jpeg?raw=true)
+![alt text](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/images/MicroserviceArchitecture.jpeg?raw=true)
 
 ### 4.2 Component Details
 
@@ -63,7 +63,7 @@ These estimations are derived based on assumed traffic patterns and service usag
 
 ### 5.1 Sequence Diagram
 
-![alt text](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/SequenceDiagram.jpeg?raw=true)
+![alt text](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/images/SequenceDiagram.jpeg?raw=true)
 
 ### 5.2 Service Interaction (Sequence)
 
@@ -73,7 +73,17 @@ These estimations are derived based on assumed traffic patterns and service usag
 4. Upon success, executes DB operations.
 5. Sends audit logs to Shared Service (async).
 
-## 6 Tech Stack
+## 6 Entity Relationship Diagram (ERD)
+
+### 6.1 Entities & Relationships
+![alt text](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/images/ERD.jpeg?raw=true)
+
+> Notes:
+> - Each review is linked to one book. 
+> - Preferences help in generating recommendations. 
+> - Logs are used for auditing user actions and are recorded via the Shared Service.
+
+## 7 Tech Stack
 
 | Layer           | Tech                                 |
 |-----------------|--------------------------------------|
@@ -86,7 +96,7 @@ These estimations are derived based on assumed traffic patterns and service usag
 | Monitoring      | Prometheus + Grafana (optional)      |
 
 
-## 7 Scalability
+## 8 Scalability
 
 - **Microservices**: Each domain (books, reviews, recommendations, AI, auth/logging) is isolated and can scale independently.
 - **DB Scaling**: Read replicas for PostgreSQL; consider partitioning large review tables.
@@ -96,7 +106,7 @@ These estimations are derived based on assumed traffic patterns and service usag
 - **CI/CD**: Auto-deploy on Git push using GitHub Actions + AWS CodeDeploy.
 - **Monitoring**: Prometheus + Grafana or CloudWatch for performance tracking.
 
-## 8. Future Enhancements
+## 9 Future Enhancements
 
 - Implement **rate-limiting** and **caching layer** (e.g., Redis).
 - Move LLaMA3 summaries to **event-driven architecture** (e.g., SQS, Kafka).
