@@ -4,7 +4,7 @@ import httpx
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import insert
-from models import Log
+
 
 # Create logs directory if it doesn't exist
 os.makedirs("logs", exist_ok=True)
