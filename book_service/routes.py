@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -8,23 +9,42 @@ from schemas import BookCreate, BookResponse
 from db import get_db
 from auth import verify_auth
 from logging_utils import log_action, logger
+from book_utils import generate_book_summary
 import logging
 
 router = APIRouter()
+security = HTTPBasic()
 
 @router.post("/books", response_model=BookResponse)
 async def create_book(
     book: BookCreate,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(verify_auth)
+    user_id: int = Depends(verify_auth),
+    credentials: HTTPBasicCredentials = Depends(security)
 ):
     try:
         logger.info(f"Attempting to create new book: {book.dict()}")
         
+        # Create book first
         db_book = Book(**book.dict())
         db.add(db_book)
         await db.commit()
         await db.refresh(db_book)
+        
+        # Generate summary if content is provided
+        if book.summary:
+            try:
+                generated_summary = await generate_book_summary(
+                    book_id=db_book.id,
+                    content=book.summary,
+                    auth=(credentials.username, credentials.password)
+                )
+                db_book.summary = generated_summary
+                await db.commit()
+                await db.refresh(db_book)
+            except Exception as e:
+                logger.warning(f"Failed to generate summary: {str(e)}")
+                # Continue without summary - don't fail the book creation
         
         logger.info(f"Successfully created book with ID: {db_book.id}")
         await log_action(
@@ -169,7 +189,8 @@ async def update_book(
     book_id: int,
     book: BookCreate,
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(verify_auth)
+    user_id: int = Depends(verify_auth),
+    credentials: HTTPBasicCredentials = Depends(security)
 ):
     try:
         logger.info(f"Attempting to update book with ID: {book_id}")
@@ -195,6 +216,20 @@ async def update_book(
             )
         
         update_data = book.dict(exclude_unset=True)
+        
+        # Generate new summary if summary is being updated
+        if "summary" in update_data and update_data["summary"]:
+            try:
+                generated_summary = await generate_book_summary(
+                    book_id=book_id,
+                    content=update_data["summary"],
+                    auth=(credentials.username, credentials.password)
+                )
+                update_data["summary"] = generated_summary
+            except Exception as e:
+                logger.warning(f"Failed to generate summary: {str(e)}")
+                # Continue with original summary - don't fail the update
+        
         for key, value in update_data.items():
             setattr(db_book, key, value)
         
