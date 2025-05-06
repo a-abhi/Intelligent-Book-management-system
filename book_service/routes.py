@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from typing import List
+from typing import List, Optional
 from models import Book
 from schemas import BookCreate, BookResponse
 from db import get_db
@@ -70,12 +70,17 @@ async def create_book(
 @router.get("/books", response_model=List[BookResponse])
 async def get_books(
     db: AsyncSession = Depends(get_db),
-    user_id: int = Depends(verify_auth)
+    user_id: int = Depends(verify_auth),
+    genre: Optional[str] = Query(None, description="Filter books by genre")
 ):
     try:
-        logger.info("Attempting to fetch all books")
+        logger.info(f"Attempting to fetch books with genre filter: {genre}")
         
+        # Build query based on filters
         stmt = select(Book)
+        if genre:
+            stmt = stmt.where(Book.genre == genre)
+        
         result = await db.execute(stmt)
         books = result.scalars().all()
         
@@ -85,7 +90,7 @@ async def get_books(
             user_id=user_id,
             action="get_books",
             status="success",
-            details=f"Retrieved {len(books)} books"
+            details=f"Retrieved {len(books)} books" + (f" with genre {genre}" if genre else "")
         )
         return books
         
