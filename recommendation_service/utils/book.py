@@ -25,7 +25,7 @@ async def get_books_by_genre(genre: str, credentials: tuple = None) -> list:
             
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{BOOK_SERVICE_URL}/books",
+                f"{BOOK_SERVICE_URL}/api/v1/books",
                 params={"genre": genre},
                 auth=auth
             )

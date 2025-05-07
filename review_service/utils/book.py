@@ -17,7 +17,7 @@ async def verify_book_exists(book_id: str, credentials: tuple = None):
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{BOOK_SERVICE_URL}/books/{book_id}",
+                f"{BOOK_SERVICE_URL}/api/v1/books/{book_id}",
                 auth=credentials
             )
             

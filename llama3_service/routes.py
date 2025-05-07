@@ -12,6 +12,7 @@ from schemas import (
 from db import get_db
 from utils.auth import verify_auth
 from utils.logging import log_action, logger
+from utils.book import verify_book_exists
 import httpx
 import os
 from typing import Optional
@@ -58,6 +59,14 @@ async def generate_summary(
     credentials: HTTPBasicCredentials = Depends(security)
 ):
     try:
+        # Verify book exists before proceeding
+        book_exists = await verify_book_exists(request.book_id, (credentials.username, credentials.password))
+        if not book_exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Book with ID {request.book_id} not found"
+            )
+        
         # Check if summary exists in database
         existing_summary = await get_cached_summary(db, request.book_id, user_id)
         
@@ -108,6 +117,8 @@ async def generate_summary(
         )
         return _create_summary_response(db_summary)
         
+    except HTTPException:
+        raise
     except Exception as e:
         await log_action(
             user_id=str(user_id),
