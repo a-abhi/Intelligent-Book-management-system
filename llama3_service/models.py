@@ -1,8 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Index
-from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
-
-Base = declarative_base()
+from db import Base
 
 class BookSummary(Base):
     __tablename__ = 'book_summaries'
@@ -10,6 +8,7 @@ class BookSummary(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     book_id = Column(Integer, nullable=False, index=True)
     user_id = Column(Integer, nullable=False, index=True)
+    content = Column(Text, nullable=False)  # Store original content
     summary = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

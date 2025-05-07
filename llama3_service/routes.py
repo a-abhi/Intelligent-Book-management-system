@@ -18,14 +18,13 @@ router = APIRouter()
 security = HTTPBasic()
 
 LLAMA_API_URL = os.getenv("LLAMA_API_URL", "http://localhost:11434")
-LLAMA_MODEL = os.getenv("LLAMA_MODEL", "llama2")
+LLAMA_MODEL = os.getenv("LLAMA_MODEL", "llama3.2")
 
 
 async def get_cached_summary(
     db: AsyncSession,
     book_id: int,
     user_id: int,
-    refresh: bool = False
 ) -> Optional[BookSummary]:
     """
     Get a cached summary for the given book_id and user_id if it exists.
@@ -39,8 +38,6 @@ async def get_cached_summary(
     Returns:
         Optional[BookSummary]: The cached summary if found, None otherwise
     """
-    if refresh:
-        return None
         
     stmt = select(BookSummary).where(
         BookSummary.book_id == book_id,
@@ -60,8 +57,9 @@ async def generate_summary(
 ):
     try:
         # Check if summary exists in database
-        existing_summary = await get_cached_summary(db, request.book_id, user_id, refresh)
+        existing_summary = await get_cached_summary(db, request.book_id, user_id)
         
+        # Return cached summary if it exists and refresh is False
         if existing_summary and not refresh:
             await log_action(
                 user_id=str(user_id),
@@ -69,13 +67,14 @@ async def generate_summary(
                 status="success",
                 details=f"Retrieved cached summary for book {request.book_id}"
             )
-            return existing_summary
+            return _create_summary_response(existing_summary)
         
         # Generate new summary
         summary = await _generate_summary(request.content)
         
         if existing_summary:
             # Update existing summary
+            existing_summary.content = request.content
             existing_summary.summary = summary
             await db.commit()
             await db.refresh(existing_summary)
@@ -86,12 +85,13 @@ async def generate_summary(
                 status="success",
                 details=f"Updated summary for book {request.book_id}"
             )
-            return existing_summary
-            
+            return _create_summary_response(existing_summary)
+        
         # Create new summary
         db_summary = BookSummary(
             book_id=request.book_id,
             user_id=user_id,
+            content=request.content,
             summary=summary
         )
         db.add(db_summary)
@@ -104,7 +104,7 @@ async def generate_summary(
             status="success",
             details=f"Created summary for book {request.book_id}"
         )
-        return db_summary
+        return _create_summary_response(db_summary)
         
     except Exception as e:
         await log_action(
@@ -118,6 +118,17 @@ async def generate_summary(
             detail="An error occurred while generating summary"
         )
 
+def _create_summary_response(summary: BookSummary) -> BookSummaryResponse:
+    """Helper function to create BookSummaryResponse from BookSummary model."""
+    return BookSummaryResponse(
+        id=summary.id,
+        book_id=summary.book_id,
+        content=summary.content,
+        summary=summary.summary,
+        created_at=summary.created_at,
+        updated_at=summary.updated_at
+    )
+
 async def _generate_summary(content: str) -> str:
     """
     Generate a summary using the Llama model.
@@ -130,23 +141,54 @@ async def _generate_summary(content: str) -> str:
     """
     prompt = f"Please provide a concise summary of the following text:\n\n{content}"
     
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{LLAMA_API_URL}/api/generate",
-            json={
-                "model": LLAMA_MODEL,
-                "prompt": prompt,
-                "stream": False
-            }
-        )
-        
-        if response.status_code != 200:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error getting AI response"
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{LLAMA_API_URL}/api/generate",
+                json={
+                    "model": LLAMA_MODEL,
+                    "prompt": prompt,
+                    "stream": False,
+                    "temperature": 0.7,  # Add some creativity while keeping it focused
+                    "max_tokens": 500    # Limit response length
+                }
             )
-        
-        return response.json()["response"]
+            
+            if response.status_code != 200:
+                error_detail = f"Ollama API error: Status {response.status_code}, Response: {response.text}"
+                logger.error(error_detail)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=error_detail
+                )
+            
+            response_data = response.json()
+            logger.info(f"Ollama API response: {response_data}")
+            
+            if "response" not in response_data:
+                error_detail = f"Unexpected Ollama API response format: {response_data}"
+                logger.error(error_detail)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=error_detail
+                )
+            
+            return response_data["response"]
+            
+    except httpx.RequestError as e:
+        error_detail = f"Failed to connect to Ollama API: {str(e)}"
+        logger.error(error_detail)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=error_detail
+        )
+    except Exception as e:
+        error_detail = f"Unexpected error during summary generation: {str(e)}"
+        logger.error(error_detail)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_detail
+        )
 
 @router.get("/summaries/{book_id}", response_model=BookSummaryResponse)
 async def get_summary(
@@ -174,7 +216,8 @@ async def get_summary(
             status="success",
             details=f"Retrieved summary for book {book_id}"
         )
-        return summary
+        
+        return _create_summary_response(summary)
         
     except HTTPException:
         raise

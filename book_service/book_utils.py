@@ -1,8 +1,9 @@
 import httpx
 import os
 from fastapi import HTTPException, status
+from logging_utils import logger
 
-LLAMA3_SERVICE_URL = os.getenv("LLAMA3_SERVICE_URL", "http://localhost:8003")
+LLAMA3_SERVICE_URL = os.getenv("LLAMA3_SERVICE_URL", "http://localhost:8004")
 
 async def generate_book_summary(book_id: int, content: str, auth: tuple) -> str:
     """
@@ -20,6 +21,7 @@ async def generate_book_summary(book_id: int, content: str, auth: tuple) -> str:
         HTTPException: If the LLaMA3 service call fails
     """
     try:
+        logger.info(f"#########Generating summary for book {book_id} with content: {content}")
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{LLAMA3_SERVICE_URL}/api/v1/generate-summary",
@@ -29,7 +31,7 @@ async def generate_book_summary(book_id: int, content: str, auth: tuple) -> str:
                 },
                 auth=auth
             )
-            
+            logger.info(f"Response: {response.json()}")
             if response.status_code == 200:
                 return response.json()["summary"]
             elif response.status_code == 401:
