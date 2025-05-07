@@ -2,6 +2,7 @@ import httpx
 import os
 from fastapi import HTTPException, status
 from auth import verify_auth
+from logging_utils import logger
 
 BOOK_SERVICE_URL = os.getenv("BOOK_SERVICE_URL", "http://localhost:8001")
 
@@ -20,20 +21,11 @@ async def verify_book_exists(book_id: str, credentials: tuple = None):
                 auth=credentials
             )
             
-            if response.status_code == 401:
+            # Pass through the original response status and text
+            if response.status_code != 200:
                 raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Authentication failed with book service"
-                )
-            elif response.status_code == 404:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Book not found"
-                )
-            elif response.status_code != 200:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Error communicating with book service"
+                    status_code=response.status_code,
+                    detail=response.text
                 )
                 
     except httpx.RequestError as e:

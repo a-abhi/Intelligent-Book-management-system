@@ -1,38 +1,37 @@
 import uuid
-from pydantic import BaseModel, Field, validator
-from typing import Optional
+from pydantic import BaseModel, Field, validator, confloat
+from typing import Optional, List
 from datetime import datetime
 
 class ReviewBase(BaseModel):
-    rating: int = Field(
-        ...,
-        ge=1,
-        le=5,
-        description="Rating must be between 1 and 5",
-        error_messages={
-            "ge": "Rating must be at least 1",
-            "le": "Rating cannot be more than 5"
-        }
-    )
-    text: Optional[str] = None
+    rating: confloat(ge=1.0, le=5.0) = Field(..., description="Rating from 1 to 5")
+    comment: Optional[str] = Field(None, description="Review comment")
 
     @validator('rating')
     def validate_rating(cls, v):
-        if not isinstance(v, int):
-            raise ValueError('Rating must be an integer')
-        if v < 1 or v > 5:
-            raise ValueError('Rating must be between 1 and 5')
+        if not isinstance(v, float):
+            raise ValueError('Rating must be a float')
+        if v < 1.0 or v > 5.0:
+            raise ValueError('Rating must be between 1.0 and 5.0')
         return v
 
 class ReviewCreate(ReviewBase):
     pass
 
 class ReviewResponse(ReviewBase):
-    id: int
-    book_id: int
-    user_id: int
-    created_at: datetime
-    updated_at: datetime
-
+    id: int = Field(..., description="Unique identifier for the review")
+    user_id: int = Field(..., description="ID of the user who wrote the review")
+    created_at: datetime = Field(..., description="Timestamp when the review was created")
+    updated_at: datetime = Field(..., description="Timestamp when the review was last updated")
+    
     class Config:
-        from_attributes = True 
+        from_attributes = True
+
+class BookReviewsSummary(BaseModel):
+    book_id: int = Field(..., description="ID of the book")
+    summary: str = Field(..., description="AI-generated summary of all reviews for the book")
+    average_rating: float = Field(..., description="Average rating of all reviews")
+    total_reviews: int = Field(..., description="Total number of reviews")
+
+class ReviewSummaryRequest(BaseModel):
+    review_id: int = Field(..., description="ID of the review to summarize") 

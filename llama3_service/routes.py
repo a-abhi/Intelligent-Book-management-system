@@ -5,7 +5,9 @@ from sqlalchemy import select
 from models import BookSummary
 from schemas import (
     BookSummaryCreate,
-    BookSummaryResponse
+    BookSummaryResponse,
+    ReviewSummaryRequest,
+    ReviewSummaryResponse
 )
 from db import get_db
 from auth import verify_auth
@@ -149,7 +151,6 @@ async def _generate_summary(content: str) -> str:
                     "model": LLAMA_MODEL,
                     "prompt": prompt,
                     "stream": False,
-                    "temperature": 0.7,  # Add some creativity while keeping it focused
                     "max_tokens": 500    # Limit response length
                 }
             )
@@ -251,4 +252,45 @@ async def health_check():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Service is not healthy"
+        )
+
+@router.post("/generate-review-summary", response_model=ReviewSummaryResponse)
+async def generate_review_summary(
+    request: ReviewSummaryRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: int = Depends(verify_auth),
+    credentials: HTTPBasicCredentials = Depends(security)
+):
+    """
+    Generate a summary for book reviews using LLaMA3.
+    """
+    try:
+        # Generate summary using LLaMA3
+        summary = await _generate_summary(request.content)
+        
+        # Create response without content
+        response = ReviewSummaryResponse(
+            book_id=request.book_id,
+            summary=summary
+        )
+        
+        await log_action(
+            user_id=str(user_id),
+            action="generate_review_summary",
+            status="success",
+            details=f"Generated review summary for book {request.book_id}"
+        )
+        
+        return response
+        
+    except Exception as e:
+        await log_action(
+            user_id=str(user_id),
+            action="generate_review_summary",
+            status="error",
+            details=str(e)
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating review summary: {str(e)}"
         ) 
