@@ -7,9 +7,9 @@ from typing import List, Optional
 from models import Book
 from schemas import BookCreate, BookResponse
 from db import get_db
-from auth import verify_auth
-from logging_utils import log_action, logger
-from book_utils import generate_book_summary
+from utils.auth import verify_auth
+from utils.logging import log_action, logger
+from utils.book import generate_book_summary
 import logging
 
 router = APIRouter()

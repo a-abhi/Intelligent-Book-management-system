@@ -1,7 +1,7 @@
 import httpx
 import os
 from fastapi import HTTPException, status
-from logging_utils import logger
+from utils.logging import logger
 
 LLAMA3_SERVICE_URL = os.getenv("LLAMA3_SERVICE_URL", "http://localhost:8004")
 

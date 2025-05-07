@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 import asyncpg
-from logging_utils import logger
+from utils.logging import logger
 
 # Database configuration
 DB_HOST = os.getenv("DB_HOST", "localhost")

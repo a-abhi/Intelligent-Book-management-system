@@ -53,21 +53,19 @@ async def log_action(
         logger.info(log_message)
         
         # Log to shared service
-        log_data = {
-            "service": "llama3_service",
-            "user_id": user_id,
-            "action": action,
-            "status": status,
-            "details": details,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        
         async with httpx.AsyncClient() as client:
-            await client.post(
-                f"{SHARED_SERVICE_URL}/logs",
-                json=log_data
+            response = await client.post(
+                f"{SHARED_SERVICE_URL}/api/v1/logs",
+                json={
+                    "user_id": user_id,
+                    "action": action,
+                    "status": status,
+                    "details": details
+                }
             )
+            if response.status_code != 200:
+                logger.error(f"Failed to log action: {response.text}")
             
     except Exception as e:
         # Don't let logging failures affect the main functionality
-        logger.error(f"Failed to log action: {str(e)}")
+        logger.error(f"Error logging action: {str(e)}")

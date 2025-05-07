@@ -3,10 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from models import User, Log
 from db import get_db
-from auth import verify_credentials, security
+from utils.auth import verify_credentials, security
 from pydantic import BaseModel, EmailStr
 from fastapi.security import HTTPBasicCredentials
-from logging_utils import log_request, log_error
+from utils.logging import log_request, log_error
 import traceback
 
 class UserCreate(BaseModel):

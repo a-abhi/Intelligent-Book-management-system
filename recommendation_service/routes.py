@@ -7,9 +7,9 @@ import uuid
 from models import Preference
 from schemas import PreferenceCreate, PreferenceResponse, BookRecommendation
 from db import get_db
-from auth import verify_auth
-from logging_utils import log_action
-from book_utils import get_books_by_genre
+from utils.auth import verify_auth
+from utils.logging import log_action
+from utils.book import get_books_by_genre
 
 router = APIRouter()
 security = HTTPBasic()

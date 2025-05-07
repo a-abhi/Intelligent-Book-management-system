@@ -49,16 +49,17 @@ async def log_action(
         # Send to shared service
         try:
             async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"{SHARED_SERVICE_URL}/logs",
+                response = await client.post(
+                    f"{SHARED_SERVICE_URL}/api/v1/logs",
                     json={
                         "user_id": user_id,
-                        "service": "recommendation_service",
                         "action": action,
                         "status": status,
                         "details": details
                     }
                 )
+                if response.status_code != 200:
+                    logger.error(f"Failed to log action: {response.text}")
         except Exception as e:
             logger.error(f"Failed to send log to shared service: {str(e)}")
             # Don't raise the exception as logging should not break the main functionality

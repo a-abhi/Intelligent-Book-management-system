@@ -1,8 +1,8 @@
 import httpx
 import os
 from fastapi import HTTPException, status
-from auth import verify_auth
-from logging_utils import logger
+from utils.auth import verify_auth
+from utils.logging import logger
 
 BOOK_SERVICE_URL = os.getenv("BOOK_SERVICE_URL", "http://localhost:8001")
 

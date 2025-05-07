@@ -1,7 +1,7 @@
 import httpx
 import os
 from fastapi import HTTPException, status
-from logging_utils import logger
+from utils.logging import logger
 from typing import List
 from models import Review
 

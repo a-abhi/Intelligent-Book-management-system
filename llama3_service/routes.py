@@ -10,8 +10,8 @@ from schemas import (
     ReviewSummaryResponse
 )
 from db import get_db
-from auth import verify_auth
-from logging_utils import log_action, logger
+from utils.auth import verify_auth
+from utils.logging import log_action, logger
 import httpx
 import os
 from typing import Optional

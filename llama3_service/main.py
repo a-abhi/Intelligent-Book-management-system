@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes import router
 from db import init_db
 import logging
-from logging_utils import setup_logging
+from utils.logging import setup_logging
 
 # Setup logging
 setup_logging()

@@ -6,11 +6,11 @@ import uuid
 from models import Review
 from schemas import ReviewCreate, ReviewResponse, BookReviewsSummary
 from db import get_db
-from auth import verify_auth
-from logging_utils import log_action
-from book_utils import verify_book_exists
+from utils.auth import verify_auth
+from utils.logging import log_action
+from utils.book import verify_book_exists
 from sqlalchemy import select
-from review_utils import generate_book_reviews_summary
+from utils.review import generate_book_reviews_summary
 
 router = APIRouter()
 security = HTTPBasic()
