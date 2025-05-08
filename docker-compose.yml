@@ -13,6 +13,7 @@ services:
   # Database
   postgres:
     image: postgres:15
+    container_name: postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -35,38 +36,19 @@ services:
 
   # Book Service
   book_service:
+    container_name: book_service
     build:
       context: ./book_service
       dockerfile: Dockerfile
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/bookdb
-      - SERVICE_PORT=8000
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER:-postgres}
-      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - "8000:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      setup:
-        condition: service_completed_successfully
-    networks:
-      - book_network
-
-  # Review Service
-  review_service:
-    build:
-      context: ./review_service
-      dockerfile: Dockerfile
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/reviewdb
       - SERVICE_PORT=8001
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER:-postgres}
       - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - SHARED_SERVICE_URL=http://shared_service:8000
+      - LLAMA3_SERVICE_URL=http://llama3_service:8004
     ports:
       - "8001:8001"
     depends_on:
@@ -77,22 +59,53 @@ services:
     networks:
       - book_network
 
+  # Review Service
+  review_service:
+    container_name: review_service
+    build:
+      context: ./review_service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/reviewdb
+      - SERVICE_PORT=8002
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - SHARED_SERVICE_URL=http://shared_service:8000
+      - LLAMA3_SERVICE_URL=http://llama3_service:8004
+      - BOOK_SERVICE_URL=http://book_service:8001
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      setup:
+        condition: service_completed_successfully
+    networks:
+      - book_network
+
   # LLaMA3 Service
   llama3_service:
+    container_name: llama3_service
     build:
       context: ./llama3_service
       dockerfile: Dockerfile
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/llamadb
-      - SERVICE_PORT=8002
+      - SERVICE_PORT=8004
       - LLAMA_API_URL=${LLAMA_API_URL:-http://ollama:11434}
-      - LLAMA_MODEL=${LLAMA_MODEL:-mistral}
+      - LLAMA_MODEL=${LLAMA_MODEL:-llama3.2}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER:-postgres}
       - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - SHARED_SERVICE_URL=http://shared_service:8000
+      - BOOK_SERVICE_URL=http://book_service:8001
+      - LLAMA_API_URL=http://ollama:11434
+      - LLAMA_MODEL=llama3.2
     ports:
-      - "8002:8002"
+      - "8004:8004"
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,6 +118,7 @@ services:
 
   # Recommendation Service
   recommendation_service:
+    container_name: recommendation_service
     build:
       context: ./recommendation_service
       dockerfile: Dockerfile
@@ -115,6 +129,8 @@ services:
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER:-postgres}
       - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - SHARED_SERVICE_URL=http://shared_service:8000
+      - BOOK_SERVICE_URL=http://book_service:8001
     ports:
       - "8003:8003"
     depends_on:
@@ -127,18 +143,19 @@ services:
 
   # Shared Service
   shared_service:
+    container_name: shared_service
     build:
       context: ./shared_service
       dockerfile: Dockerfile
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/shareddb
-      - SERVICE_PORT=8004
+      - SERVICE_PORT=8000
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER:-postgres}
       - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "8004:8004"
+      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
