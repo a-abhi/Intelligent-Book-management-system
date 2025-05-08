@@ -1,0 +1,189 @@
+version: '3.8'
+
+services:
+  # Setup Service
+  setup:
+    image: ubuntu:latest
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: >
+      bash -c "chmod +x setup_requirements.sh && ./setup_requirements.sh"
+
+  # Database
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_MULTIPLE_DATABASES: bookdb,reviewdb,llamadb,recommendationdb,shareddb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    networks:
+      - book_network
+
+  # Book Service
+  book_service:
+    container_name: book_service
+    build:
+      context: ./book_service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/bookdb
+      - SERVICE_PORT=8001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - SHARED_SERVICE_URL=http://shared_service:8000
+      - LLAMA3_SERVICE_URL=http://llama3_service:8004
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      setup:
+        condition: service_completed_successfully
+    networks:
+      - book_network
+
+  # Review Service
+  review_service:
+    container_name: review_service
+    build:
+      context: ./review_service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/reviewdb
+      - SERVICE_PORT=8002
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - SHARED_SERVICE_URL=http://shared_service:8000
+      - LLAMA3_SERVICE_URL=http://llama3_service:8004
+      - BOOK_SERVICE_URL=http://book_service:8001
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      setup:
+        condition: service_completed_successfully
+    networks:
+      - book_network
+
+  # LLaMA3 Service
+  llama3_service:
+    container_name: llama3_service
+    build:
+      context: ./llama3_service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/llamadb
+      - SERVICE_PORT=8004
+      - LLAMA_API_URL=${LLAMA_API_URL:-http://ollama:11434}
+      - LLAMA_MODEL=${LLAMA_MODEL:-llama3.2}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - SHARED_SERVICE_URL=http://shared_service:8000
+      - BOOK_SERVICE_URL=http://book_service:8001
+      - LLAMA_API_URL=http://ollama:11434
+      - LLAMA_MODEL=llama3.2
+    ports:
+      - "8004:8004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      setup:
+        condition: service_completed_successfully
+    networks:
+      - book_network
+
+  # Recommendation Service
+  recommendation_service:
+    container_name: recommendation_service
+    build:
+      context: ./recommendation_service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/recommendationdb
+      - SERVICE_PORT=8003
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - SHARED_SERVICE_URL=http://shared_service:8000
+      - BOOK_SERVICE_URL=http://book_service:8001
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      setup:
+        condition: service_completed_successfully
+    networks:
+      - book_network
+
+  # Shared Service
+  shared_service:
+    container_name: shared_service
+    build:
+      context: ./shared_service
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/shareddb
+      - SERVICE_PORT=8000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      setup:
+        condition: service_completed_successfully
+    networks:
+      - book_network
+
+  # Ollama Service for LLaMA3
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./ollama-entrypoint.sh:/ollama-entrypoint.sh
+    networks:
+      - book_network
+    entrypoint: ["/bin/bash", "/ollama-entrypoint.sh"]
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+  ollama_data:
+
+networks:
+  book_network:
+    driver: bridge
