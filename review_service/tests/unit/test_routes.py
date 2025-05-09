@@ -3,10 +3,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from unittest.mock import patch, AsyncMock, MagicMock
 import uuid
+from datetime import datetime
 from main import app
-from schemas import ReviewCreate, ReviewResponse
+from schemas import ReviewCreate, ReviewResponse, BookReviewsSummary
 from models import Review
 from routes import get_db, verify_auth
+from utils.review import generate_book_reviews_summary
+from fastapi import HTTPException, status
 
 @pytest.fixture
 def client():
@@ -18,149 +21,355 @@ def test_health_check(client):
     assert response.json() == {"status": "healthy"}
 
 def test_create_review_success(client):
+    # 1. Mock dependencies
     mock_db_session = AsyncMock()
-    mock_user_id = 123
+    mock_user_id = 123  # Changed from UUID to integer
+    book_id = 1
+
+    # Configure the mock_db_session
     mock_db_session.add = MagicMock()
     mock_db_session.commit = AsyncMock()
 
+    # 2. Override dependencies
     app.dependency_overrides[get_db] = lambda: mock_db_session
     app.dependency_overrides[verify_auth] = lambda: mock_user_id
-    book_id = 1
-    review_data = {"rating": 5, "comment": "Great book!"}
 
-    response = client.post(
-        f"/api/v1/books/{book_id}/reviews",
-        json=review_data,
-        auth=("testuser", "testpass") # Basic auth
-    )
+    # 3. Mock verify_book_exists
+    with patch('routes.verify_book_exists', AsyncMock()) as mock_verify_book:
+        # 4. Prepare request data
+        review_data = {
+            "rating": 4.5,
+            "comment": "Great book with excellent content!"
+        }
 
-    assert response.status_code == 200
-    json_response = response.json()
-    assert json_response["book_id"] == book_id
-    assert json_response["rating"] == review_data["rating"]
-    assert json_response["comment"] == review_data["comment"]
-    assert "id" in json_response
-    assert "user_id" in json_response # This will be the UUID from mock_verify_auth
-    
+        # Configure mock_db_session.refresh
+        async def refresh_side_effect(review_instance):
+            if isinstance(review_instance, Review):
+                review_instance.id = 1
+                review_instance.book_id = book_id  # Set the book_id
+                review_instance.user_id = mock_user_id  # Set the user_id
+                current_time = datetime.utcnow()
+                review_instance.created_at = current_time
+                review_instance.updated_at = current_time
+            return None
+        mock_db_session.refresh = AsyncMock(side_effect=refresh_side_effect)
+
+        # 5. Call the endpoint
+        response = client.post(
+            f"/api/v1/books/{book_id}/reviews",
+            json=review_data,
+            auth=("testuser", "testpass")
+        )
+
+        # 6. Assert response
+        assert response.status_code == 200
+        response_data = response.json()
+        assert response_data["rating"] == review_data["rating"]
+        assert response_data["comment"] == review_data["comment"]
+        assert response_data["book_id"] == book_id
+        assert response_data["user_id"] == mock_user_id
+        assert "id" in response_data
+        assert "created_at" in response_data
+        assert "updated_at" in response_data
+
+        # 7. Assert that mocks were called
+        mock_verify_book.assert_called_once_with(str(book_id), ("testuser", "testpass"))
+        mock_db_session.add.assert_called_once()
+        mock_db_session.commit.assert_called_once()
+        mock_db_session.refresh.assert_called_once()
+
+    # Clean up dependency overrides
     app.dependency_overrides = {}
 
-
-def test_get_reviews_success(
-    client, mock_db_session, mock_verify_auth, mock_verify_book_exists, mock_log_action
-):
-    app.dependency_overrides[db.get_db] = lambda: mock_db_session
-
+def test_create_review_invalid_rating(client):
+    mock_db_session = AsyncMock()
+    mock_user_id = uuid.uuid4()
     book_id = 1
-    user_id = mock_verify_auth.return_value
-    
+
+    app.dependency_overrides[get_db] = lambda: mock_db_session
+    app.dependency_overrides[verify_auth] = lambda: mock_user_id
+
+    with patch('routes.verify_book_exists', AsyncMock()):
+        # Test with invalid rating
+        review_data = {
+            "rating": 6.0,  # Invalid rating > 5.0
+            "comment": "Great book!"
+        }
+
+        response = client.post(
+            f"/api/v1/books/{book_id}/reviews",
+            json=review_data,
+            auth=("testuser", "testpass")
+        )
+
+        assert response.status_code == 422  # Validation error
+        assert "rating" in response.json()["detail"][0]["loc"]
+
+    app.dependency_overrides = {}
+
+def test_get_reviews_success(client):
+    # 1. Mock dependencies
+    mock_db_session = AsyncMock()
+    mock_user_id = 123
+    book_id = 1
+
+    # Configure the mock_db_session
+    mock_db_session.execute = AsyncMock()
+
+    # 2. Override dependencies
+    app.dependency_overrides[get_db] = lambda: mock_db_session
+    app.dependency_overrides[verify_auth] = lambda: mock_user_id
+
+    # 3. Mock verify_book_exists and log_action
+    with patch('routes.verify_book_exists', AsyncMock()) as mock_verify_book, \
+         patch('routes.log_action', AsyncMock()) as mock_log_action:
+
+        # Create mock reviews
+        mock_reviews = [
+            Review(
+                id=1,
+                book_id=book_id,
+                user_id=mock_user_id,
+                rating=5.0,
+                comment="Excellent!",
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            ),
+            Review(
+                id=2,
+                book_id=book_id,
+                user_id=mock_user_id,
+                rating=4.0,
+                comment="Good read.",
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+        ]
+
+        # Mock the execute method and its result
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = mock_reviews
+        mock_db_session.execute.return_value = mock_result
+
+        # 4. Call the endpoint
+        response = client.get(
+            f"/api/v1/books/{book_id}/reviews",
+            auth=("testuser", "testpass")
+        )
+
+        # 5. Assert response
+        assert response.status_code == 200
+        response_data = response.json()
+        assert len(response_data) == 2
+        assert response_data[0]["comment"] == "Excellent!"
+        assert response_data[1]["rating"] == 4.0
+
+        # 6. Assert that mocks were called
+        mock_verify_book.assert_called_once_with(str(book_id), ("testuser", "testpass"))
+        mock_db_session.execute.assert_called_once()
+        mock_log_action.assert_called_once_with(
+            str(mock_user_id),
+            "get_reviews",
+            "success",
+            f"Retrieved reviews for book {book_id}"
+        )
+
+    # Clean up dependency overrides
+    app.dependency_overrides = {}
+
+def test_create_review_book_not_found(client):
+    # 1. Mock dependencies
+    mock_db_session = AsyncMock()
+    mock_user_id = 123
+    book_id = 999  # Non-existent book
+
+    # Configure the mock_db_session
+    mock_db_session.add = MagicMock()
+    mock_db_session.commit = AsyncMock()
+
+    # 2. Override dependencies
+    app.dependency_overrides[get_db] = lambda: mock_db_session
+    app.dependency_overrides[verify_auth] = lambda: mock_user_id
+
+    # 3. Mock verify_book_exists to raise HTTPException
+    with patch('routes.verify_book_exists', AsyncMock(side_effect=HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Book not found"
+    ))) as mock_verify_book, \
+    patch('routes.log_action', AsyncMock()) as mock_log_action:
+
+        # 4. Prepare request data
+        review_data = {
+            "rating": 5.0,
+            "comment": "Great book!"
+        }
+
+        # 5. Call the endpoint
+        response = client.post(
+            f"/api/v1/books/{book_id}/reviews",
+            json=review_data,
+            auth=("testuser", "testpass")
+        )
+
+        # 6. Assert response
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Book not found"
+
+        # 7. Assert that mocks were called
+        mock_verify_book.assert_called_once_with(str(book_id), ("testuser", "testpass"))
+        mock_db_session.add.assert_not_called()  # Should not be called if book verification fails
+        mock_db_session.commit.assert_not_called()  # Should not be called if book verification fails
+        mock_log_action.assert_not_called()  # Should not be called if book verification fails
+
+    # Clean up dependency overrides
+    app.dependency_overrides = {}
+
+def test_get_book_reviews_summary_success(client):
+    # 1. Mock dependencies
+    mock_db_session = AsyncMock()
+    mock_user_id = 123
+    book_id = 1
+
+    # Configure the mock_db_session
+    mock_db_session.execute = AsyncMock()
+
+    # 2. Override dependencies
+    app.dependency_overrides[get_db] = lambda: mock_db_session
+    app.dependency_overrides[verify_auth] = lambda: mock_user_id
+
+    # 3. Mock verify_book_exists and generate_book_reviews_summary
+    with patch('routes.verify_book_exists', AsyncMock()) as mock_verify_book, \
+         patch('routes.generate_book_reviews_summary', AsyncMock(return_value="This is a mock summary of the reviews.")) as mock_generate_summary, \
+         patch('routes.log_action', AsyncMock()) as mock_log_action:
+
+        # Create mock reviews
+        mock_reviews = [
+            Review(
+                id=1,
+                book_id=book_id,
+                user_id=mock_user_id,
+                rating=4.5,
+                comment="Great book!",
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            ),
+            Review(
+                id=2,
+                book_id=book_id,
+                user_id=mock_user_id,
+                rating=5.0,
+                comment="Excellent!",
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+        ]
+
+        # Mock the execute method and its result
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = mock_reviews
+        mock_db_session.execute.return_value = mock_result
+
+        response = client.get(
+            f"/api/v1/books/{book_id}/reviews/summary",
+            auth=("testuser", "testpass")
+        )
+
+        # 5. Assert response
+        assert response.status_code == 200
+        response_data = response.json()
+        assert response_data["book_id"] == book_id
+        assert response_data["summary"] == "This is a mock summary of the reviews."
+        assert response_data["total_reviews"] == len(mock_reviews)
+        
+        expected_avg_rating = sum(r.rating for r in mock_reviews) / len(mock_reviews)
+        assert abs(response_data["average_rating"] - expected_avg_rating) < 0.0001  # Compare floats with tolerance
+
+        # 6. Assert that mocks were called
+        mock_verify_book.assert_called_once_with(str(book_id), ("testuser", "testpass"))
+        mock_db_session.execute.assert_called_once()
+        mock_generate_summary.assert_called_once_with(
+            reviews=mock_reviews,
+            auth=("testuser", "testpass")
+        )
+        mock_log_action.assert_called_once_with(
+            user_id=str(mock_user_id),
+            action="get_book_reviews_summary",
+            status="success",
+            details=f"Generated summary for book {book_id}"
+        )
+
+    # Clean up dependency overrides
+    app.dependency_overrides = {}
+
+def test_get_book_reviews_summary_no_reviews(client):
+    mock_db_session = AsyncMock()
+    mock_user_id = uuid.uuid4()
+    book_id = 1
+
+    # Mock empty result
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_db_session.execute = AsyncMock(return_value=mock_result)
+
+    app.dependency_overrides[get_db] = lambda: mock_db_session
+    app.dependency_overrides[verify_auth] = lambda: mock_user_id
+
+    with patch('routes.verify_book_exists', AsyncMock()) as mock_verify_book:
+        response = client.get(
+            f"/api/v1/books/{book_id}/reviews/summary",
+            auth=("testuser", "testpass")
+        )
+
+        assert response.status_code == 404
+        assert f"No reviews found for book with ID {book_id}" in response.json()["detail"]
+
+        mock_verify_book.assert_called_once_with(str(book_id), ("testuser", "testpass"))
+        mock_db_session.execute.assert_called_once()
+
+    app.dependency_overrides = {}
+
+def test_get_book_reviews_summary_llama3_service_error(client):
+    mock_db_session = AsyncMock()
+    mock_user_id = uuid.uuid4()
+    book_id = 1
+
+    # Create mock reviews
     mock_reviews = [
-        Review(id=1, book_id=book_id, user_id=uuid.uuid4(), rating=5, comment="Excellent!"),
-        Review(id=2, book_id=book_id, user_id=uuid.uuid4(), rating=4, comment="Good read.")
+        Review(
+            id=1,
+            book_id=book_id,
+            user_id=mock_user_id,
+            rating=4.5,
+            comment="Great book!",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
     ]
-    
+
     # Mock the execute method and its result
-    mock_result = AsyncMock()
+    mock_result = MagicMock()
     mock_result.scalars.return_value.all.return_value = mock_reviews
     mock_db_session.execute = AsyncMock(return_value=mock_result)
 
-    response = client.get(
-        f"/api/v1/books/{book_id}/reviews",
-        auth=("testuser", "testpass")
-    )
+    # Mock the summary generation to raise an error
+    mock_generate_summary = AsyncMock(side_effect=Exception("LLaMA3 service error"))
 
-    assert response.status_code == 200
-    json_response = response.json()
-    assert len(json_response) == 2
-    assert json_response[0]["comment"] == "Excellent!"
-    assert json_response[1]["rating"] == 4
-    
-    mock_verify_book_exists.assert_called_once_with(str(book_id), ("testuser", "testpass"))
-    mock_db_session.execute.assert_called_once()
-    mock_log_action.assert_called_with(str(user_id), "get_reviews", "success", f"Retrieved reviews for book {book_id}")
+    app.dependency_overrides[get_db] = lambda: mock_db_session
+    app.dependency_overrides[verify_auth] = lambda: mock_user_id
 
-    del app.dependency_overrides[db.get_db]
+    with patch('routes.verify_book_exists', AsyncMock()) as mock_verify_book, \
+         patch('routes.generate_book_reviews_summary', mock_generate_summary):
+        
+        response = client.get(
+            f"/api/v1/books/{book_id}/reviews/summary",
+            auth=("testuser", "testpass")
+        )
 
-def test_create_review_book_not_found(
-    client, mock_db_session, mock_verify_auth, mock_verify_book_exists, mock_log_action
-):
-    app.dependency_overrides[db.get_db] = lambda: mock_db_session
-    
-    book_id = 999 # Non-existent book
-    review_data = {"rating": 5, "comment": "Great book!"}
-    user_id = mock_verify_auth.return_value
+        assert response.status_code == 500
+        assert "An error occurred while generating the summary" in response.json()["detail"]
 
-    # Mock verify_book_exists to raise HTTPException for not found
-    from fastapi import HTTPException, status
-    mock_verify_book_exists.side_effect = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book not found")
+        mock_verify_book.assert_called_once_with(str(book_id), ("testuser", "testpass"))
+        mock_db_session.execute.assert_called_once()
+        mock_generate_summary.assert_called_once()
 
-    response = client.post(
-        f"/api/v1/books/{book_id}/reviews",
-        json=review_data,
-        auth=("testuser", "testpass")
-    )
-
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Book not found"
-    
-    mock_verify_book_exists.assert_called_once_with(str(book_id), ("testuser", "testpass"))
-    mock_log_action.assert_not_called() # Should not be called if book verification fails early
-
-    del app.dependency_overrides[db.get_db]
-
-def test_get_book_reviews_summary_success(
-    client,
-    mock_db_session,
-    mock_verify_auth,
-    mock_verify_book_exists,
-    mock_generate_book_reviews_summary,
-    mock_log_action
-):
-    app.dependency_overrides[db.get_db] = lambda: mock_db_session
-
-    book_id = 1
-    user_id = mock_verify_auth.return_value
-    mock_summary_text = "This is a great book with many positive reviews."
-    
-    mock_reviews_data = [
-        Review(id=1, book_id=book_id, user_id=uuid.uuid4(), rating=5, comment="Excellent!"),
-        Review(id=2, book_id=book_id, user_id=uuid.uuid4(), rating=4, comment="Good read."),
-        Review(id=3, book_id=book_id, user_id=uuid.uuid4(), rating=4.5, comment="Very insightful.")
-    ]
-    
-    # Mock DB execution for fetching reviews
-    mock_result = AsyncMock()
-    mock_result.scalars.return_value.all.return_value = mock_reviews_data
-    mock_db_session.execute = AsyncMock(return_value=mock_result)
-    
-    # Mock the summary generation
-    mock_generate_book_reviews_summary.return_value = mock_summary_text
-
-    response = client.get(
-        f"/api/v1/books/{book_id}/reviews/summary",
-        auth=("testuser", "testpass")
-    )
-
-    assert response.status_code == 200
-    json_response = response.json()
-    
-    assert json_response["book_id"] == book_id
-    assert json_response["summary"] == mock_summary_text
-    assert json_response["total_reviews"] == len(mock_reviews_data)
-    
-    expected_avg_rating = sum(r.rating for r in mock_reviews_data) / len(mock_reviews_data)
-    assert abs(json_response["average_rating"] - expected_avg_rating) < 0.0001 # Compare floats with tolerance
-
-    mock_verify_book_exists.assert_called_once_with(str(book_id), ("testuser", "testpass"))
-    mock_db_session.execute.assert_called_once()
-    mock_generate_book_reviews_summary.assert_called_once_with(
-        reviews=mock_reviews_data,
-        auth=("testuser", "testpass")
-    )
-    mock_log_action.assert_called_with(
-        user_id=str(user_id),
-        action="get_book_reviews_summary",
-        status="success",
-        details=f"Generated summary for book {book_id}"
-    )
-
-    del app.dependency_overrides[db.get_db]
+    app.dependency_overrides = {}

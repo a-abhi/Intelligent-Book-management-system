@@ -20,6 +20,7 @@ class ReviewCreate(ReviewBase):
 
 class ReviewResponse(ReviewBase):
     id: int = Field(..., description="Unique identifier for the review")
+    book_id: int = Field(..., description="ID of the book being reviewed")
     user_id: int = Field(..., description="ID of the user who wrote the review")
     created_at: datetime = Field(..., description="Timestamp when the review was created")
     updated_at: datetime = Field(..., description="Timestamp when the review was last updated")
