@@ -1,37 +1,37 @@
 from fastapi import FastAPI
-from routes import router
-from models import Base
-from db import engine, DATABASE_URL
-import asyncpg
-import os
+from fastapi.middleware.cors import CORSMiddleware
+from routes import review_router
+from db import init_db
+import logging
 
-app = FastAPI(title="Review Service")
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(
+    title="Review Service",
+    description="Service for managing book reviews and generating summaries",
+    version="1.0.0"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(review_router)
 
 @app.on_event("startup")
-async def init_db():
-    # Extract database name from DATABASE_URL
-    db_name = DATABASE_URL.split("/")[-1]
-    # Create a connection to postgres without specifying a database
-    sys_conn = await asyncpg.connect(
-        host=os.getenv("DB_HOST", "localhost"),
-        port=int(os.getenv("DB_PORT", "5432")),
-        user=os.getenv("DB_USER", "postgres"),
-        password=os.getenv("DB_PASSWORD", "postgres")
-    )
-    
-    # Check if database exists
-    exists = await sys_conn.fetchval(
-        "SELECT 1 FROM pg_database WHERE datname = $1", db_name
-    )
-    
-    if not exists:
-        # Create database if it doesn't exist
-        await sys_conn.execute(f'CREATE DATABASE "{db_name}"')
-    
-    await sys_conn.close()
-    
-    # Now create tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+async def startup_event():
+    logger.info("Initializing database...")
+    await init_db()
+    logger.info("Database initialized successfully")
 
-app.include_router(router, prefix="/api/v1") 
+@app.get("/")
+async def root():
+    return {"message": "Welcome to the Review Service API"} 

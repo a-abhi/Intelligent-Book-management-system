@@ -1,21 +1,20 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import router
-from db import init_db
 import logging
-from utils.logging import setup_logging
+from routes import llama3_router
+from db import init_db
 
-# Setup logging
-setup_logging()
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="LLaMA3 Service",
-    description="Service for generating book summaries using LLaMA3",
+    title="Llama3 Service",
+    description="Service for generating book summaries using Llama3",
     version="1.0.0"
 )
 
-# Add CORS middleware
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,21 +24,23 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(router, prefix="/api/v1")
+app.include_router(llama3_router)
 
 @app.on_event("startup")
 async def startup_event():
+    """Initialize database on startup."""
     try:
         await init_db()
         logger.info("Database initialized successfully")
     except Exception as e:
-        logger.error(f"Failed to initialize database: {str(e)}")
+        logger.error(f"Error initializing database: {str(e)}")
         raise
 
 @app.get("/")
 async def root():
+    """Root endpoint returning basic API information."""
     return {
-        "message": "Welcome to LLaMA3 Service",
-        "docs": "/docs",
-        "health": "/api/v1/health"
+        "message": "Welcome to the Llama3 Service API",
+        "version": "1.0.0",
+        "docs_url": "/docs"
     } 

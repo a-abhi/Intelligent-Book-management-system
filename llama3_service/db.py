@@ -1,8 +1,11 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 import asyncpg
-from utils.logging import logger
+import logging
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Database configuration
 DB_HOST = os.getenv("DB_HOST", "localhost")
@@ -60,14 +63,23 @@ async def init_db():
         )
         
         if not exists:
+            logger.info(f"Creating database {db_name}")
             await sys_conn.execute(f'CREATE DATABASE "{db_name}"')
+            logger.info(f"Database {db_name} created successfully")
         
         await sys_conn.close()
         
         # Create tables
+        logger.info("Creating database tables...")
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables created successfully")
             
+    except asyncpg.PostgresError as e:
+        error_msg = f"PostgreSQL error during database initialization: {str(e)}"
+        logger.error(error_msg)
+        raise Exception(error_msg)
     except Exception as e:
-        logger.error(f"Error initializing database: {str(e)}")
-        raise 
+        error_msg = f"Error initializing database: {str(e)}"
+        logger.error(error_msg)
+        raise Exception(error_msg) 
