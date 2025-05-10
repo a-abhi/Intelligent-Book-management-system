@@ -257,22 +257,21 @@ class Llama3ServiceRouter:
     async def generate_review_summary(
         self,
         request: ReviewSummaryRequest,
-        db: AsyncSession = Depends(get_db),
         user_id: int = Depends(verify_auth),
         credentials: HTTPBasicCredentials = Depends(HTTPBasic())
-    ):
-        """Generate a summary of reviews for a book."""
+        ):
+        """
+        Generate a summary for book reviews using LLaMA3.
+        """
         try:
-            # Verify book exists
-            book_exists = await verify_book_exists(request.book_id, (credentials.username, credentials.password))
-            if not book_exists:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Book with ID {request.book_id} not found"
-                )
-            
-            # Generate summary
+            # Generate summary using LLaMA3
             summary = await self._generate_summary(request.content)
+            
+            # Create response without content
+            response = ReviewSummaryResponse(
+                book_id=request.book_id,
+                summary=summary
+            )
             
             await log_action(
                 user_id=str(user_id),
@@ -281,13 +280,8 @@ class Llama3ServiceRouter:
                 details=f"Generated review summary for book {request.book_id}"
             )
             
-            return ReviewSummaryResponse(
-                book_id=request.book_id,
-                summary=summary
-            )
+            return response
             
-        except HTTPException:
-            raise
         except Exception as e:
             await log_action(
                 user_id=str(user_id),
@@ -297,7 +291,7 @@ class Llama3ServiceRouter:
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="An error occurred while generating review summary"
+                detail=f"Error generating review summary: {str(e)}"
             )
     
     async def health_check(self):
@@ -306,7 +300,7 @@ class Llama3ServiceRouter:
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{self.LLAMA_API_URL}/api/tags")
                 if response.status_code == 200:
-                    return {"status": "healthy", "model": self.LLAMA_MODEL}
+                    return {"status": "healthy"}
                 else:
                     return {"status": "unhealthy", "error": "Ollama API not responding"}
         except Exception as e:
