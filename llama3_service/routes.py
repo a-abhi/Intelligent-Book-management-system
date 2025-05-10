@@ -134,7 +134,7 @@ class Llama3ServiceRouter:
         refresh: bool = False,
         db: AsyncSession = Depends(get_db),
         user_id: int = Depends(verify_auth),
-        credentials: HTTPBasicCredentials = Depends(security)
+        credentials: HTTPBasicCredentials = Depends(HTTPBasic())
     ):
         """Generate or retrieve a summary for a book."""
         try:
@@ -259,7 +259,7 @@ class Llama3ServiceRouter:
         request: ReviewSummaryRequest,
         db: AsyncSession = Depends(get_db),
         user_id: int = Depends(verify_auth),
-        credentials: HTTPBasicCredentials = Depends(security)
+        credentials: HTTPBasicCredentials = Depends(HTTPBasic())
     ):
         """Generate a summary of reviews for a book."""
         try:

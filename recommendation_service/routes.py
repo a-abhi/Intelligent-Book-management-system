@@ -72,7 +72,7 @@ class RecommendationServiceRouter:
         async def get_recommendations(
             db: AsyncSession = Depends(get_db),
             user_id: int = Depends(verify_auth),
-            credentials: HTTPBasicCredentials = Depends(security)
+            credentials: HTTPBasicCredentials = Depends(self.security)
         ):
             try:
                 # Get user preferences
