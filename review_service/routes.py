@@ -9,7 +9,7 @@ from schemas import ReviewCreate, ReviewResponse, BookReviewsSummary, ReviewSumm
 from db import get_db
 from utils.auth import verify_auth
 from utils.logging import log_action, logger
-from utils.review import generate_review_summary
+from utils.review import generate_book_reviews_summary
 
 class ReviewServiceRouter:
     def __init__(self):
@@ -43,13 +43,13 @@ class ReviewServiceRouter:
                 # Generate summary if comment is provided
                 if review.comment:
                     try:
-                        generated_summary = await generate_review_summary(
+                        generated_summary = await generate_book_reviews_summary(
                             review_id=db_review.id,
                             content=review.comment,
                             auth=(credentials.username, credentials.password)
                         )
                         # Store summary in a separate table or update the review
-                        # This depends on your implementation of generate_review_summary
+                        # This depends on your implementation of generate_book_reviews_summary
                     except Exception as e:
                         logger.warning(f"Failed to generate summary: {str(e)}")
                         # Continue without summary - don't fail the review creation
@@ -248,7 +248,7 @@ class ReviewServiceRouter:
                 # Generate new summary if comment is provided
                 if review.comment:
                     try:
-                        generated_summary = await generate_review_summary(
+                        generated_summary = await generate_book_reviews_summary(
                             review_id=db_review.id,
                             content=review.comment,
                             auth=(credentials.username, credentials.password)
