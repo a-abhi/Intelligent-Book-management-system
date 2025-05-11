@@ -1,8 +1,10 @@
-from sqlalchemy.orm import declarative_base
-from sqlalchemy import Column, String, Integer, Text, DateTime
 from datetime import datetime
 
+from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy.orm import declarative_base
+
 Base = declarative_base()
+
 
 class Book(Base):
     __tablename__ = "books"
@@ -13,4 +15,4 @@ class Book(Base):
     year_published = Column(Integer)
     summary = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) 
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
