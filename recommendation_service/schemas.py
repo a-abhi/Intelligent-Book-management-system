@@ -1,12 +1,16 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, Field
+
 
 class PreferenceBase(BaseModel):
     genre: str = Field(..., min_length=1, description="Genre of the book")
 
+
 class PreferenceCreate(PreferenceBase):
     pass
+
 
 class PreferenceResponse(PreferenceBase):
     id: int
@@ -17,6 +21,7 @@ class PreferenceResponse(PreferenceBase):
     class Config:
         from_attributes = True
 
+
 class BookRecommendation(BaseModel):
     id: int
     title: str
@@ -26,4 +31,4 @@ class BookRecommendation(BaseModel):
     summary: Optional[str] = None
 
     class Config:
-        from_attributes = True 
+        from_attributes = True

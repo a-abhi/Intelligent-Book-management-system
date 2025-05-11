@@ -1,0 +1,55 @@
+name: CI Workflow for Services
+
+on:
+  push:
+    branches: [ "main", f_**", "fix_**" ]
+  pull_request:
+    branches: [ "main", f_**", "fix_**" ]
+
+jobs:
+  service_ci:
+    name: ${{ matrix.service }} CI
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - book_service
+          - llama3_service
+          - recommendation_service
+          - review_service
+          - shared_service
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Docker Compose v2.35.1
+        run: |
+          sudo curl -SL "https://github.com/docker/compose/releases/download/v2.35.1/docker-compose-linux-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+
+      - name: Install Flake8
+        run: pip install flake8
+
+      - name: Lint ${{ matrix.service }} with Flake8
+        run: flake8 --config=${{ matrix.service }}/.flake8 ${{ matrix.service }}/
+
+      - name: Prepare build context
+        run: |
+          cp requirements.txt ${{ matrix.service }}/
+
+      - name: Build and test Docker image
+        run: |
+          # Build the image
+          docker compose build ${{ matrix.service }}
+          
+          # Verify the image exists
+          docker images | grep ${{ matrix.service }}
+          
+          # Run the tests
+          docker compose run --rm ${{ matrix.service }} pytest
