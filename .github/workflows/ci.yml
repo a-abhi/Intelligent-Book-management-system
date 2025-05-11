@@ -39,10 +39,9 @@ jobs:
       - name: Lint ${{ matrix.service }} with Flake8
         run: flake8 --config=${{ matrix.service }}/.flake8 ${{ matrix.service }}/
 
-      - name: Copy requirements.txt to container directory
+      - name: Prepare build context
         run: |
-          mkdir -p ${{ matrix.service }}/container
-          cp requirements.txt ${{ matrix.service }}/container/
+          cp requirements.txt ${{ matrix.service }}/
 
       - name: Build Docker images with Docker Compose
         run: |
