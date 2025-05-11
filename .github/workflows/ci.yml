@@ -39,8 +39,15 @@ jobs:
       - name: Lint ${{ matrix.service }} with Flake8
         run: flake8 --config=${{ matrix.service }}/.flake8 ${{ matrix.service }}/
 
+      - name: Copy requirements.txt to container directory
+        run: |
+          mkdir -p ${{ matrix.service }}/container
+          cp ${{ matrix.service }}/requirements.txt ${{ matrix.service }}/container/
+
       - name: Build Docker images with Docker Compose
-        run: docker compose up -d --build ${{ matrix.service }}
+        run: |
+          docker compose build --no-cache ${{ matrix.service }}
+          docker compose up -d ${{ matrix.service }}
 
       - name: Run Pytest for ${{ matrix.service }}
         run: |
