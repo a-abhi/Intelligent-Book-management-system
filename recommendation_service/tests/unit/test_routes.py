@@ -1,17 +1,19 @@
-from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
+
+from fastapi.testclient import TestClient
+
 from main import app
-from schemas import PreferenceResponse, BookRecommendation
 from models import Preference
 from routes import get_db, verify_auth
 
 client = TestClient(app)
 
+
 def test_health_check():
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     assert response.json() == {"status": "healthy"}
+
 
 def test_get_recommendations_success():
     # 1. Mock dependencies
@@ -28,12 +30,12 @@ def test_get_recommendations_success():
     # 3. Mock preferences and book service response
     mock_preferences = [
         Preference(id=1, user_id=mock_user_id, genre="Fiction"),
-        Preference(id=2, user_id=mock_user_id, genre="Science")
+        Preference(id=2, user_id=mock_user_id, genre="Science"),
     ]
 
     mock_books = [
         {"id": 1, "title": "Book 1", "author": "Author 1", "genre": "Fiction"},
-        {"id": 2, "title": "Book 2", "author": "Author 2", "genre": "Science"}
+        {"id": 2, "title": "Book 2", "author": "Author 2", "genre": "Science"},
     ]
 
     # Mock the execute method and its result
@@ -42,14 +44,12 @@ def test_get_recommendations_success():
     mock_db_session.execute.return_value = mock_result
 
     # 4. Mock the book service call
-    with patch('routes.get_books_by_genre', AsyncMock(return_value=mock_books)) as mock_get_books, \
-         patch('routes.log_action', AsyncMock()) as mock_log_action:
+    with patch(
+        "routes.get_books_by_genre", AsyncMock(return_value=mock_books)
+    ) as mock_get_books, patch("routes.log_action", AsyncMock()) as mock_log_action:
 
         # 5. Call the endpoint
-        response = client.get(
-            "/api/v1/recommendations",
-            auth=("testuser", "testpass")
-        )
+        response = client.get("/api/v1/recommendations", auth=("testuser", "testpass"))
 
         # 6. Assert response
         assert response.status_code == 200
@@ -65,11 +65,12 @@ def test_get_recommendations_success():
             str(mock_user_id),
             "get_recommendations",
             "success",
-            f"Retrieved {len(response_data)} unique recommendations"
+            f"Retrieved {len(response_data)} unique recommendations",
         )
 
     # Clean up dependency overrides
     app.dependency_overrides = {}
+
 
 def test_get_recommendations_no_preferences():
     # 1. Mock dependencies
@@ -89,13 +90,10 @@ def test_get_recommendations_no_preferences():
     mock_db_session.execute.return_value = mock_result
 
     # 4. Mock log_action
-    with patch('routes.log_action', AsyncMock()) as mock_log_action:
+    with patch("routes.log_action", AsyncMock()) as mock_log_action:
 
         # 5. Call the endpoint
-        response = client.get(
-            "/api/v1/recommendations",
-            auth=("testuser", "testpass")
-        )
+        response = client.get("/api/v1/recommendations", auth=("testuser", "testpass"))
 
         # 6. Assert response
         assert response.status_code == 404
@@ -107,8 +105,8 @@ def test_get_recommendations_no_preferences():
             str(mock_user_id),
             "get_recommendations",
             "error",
-            "No preferences found for user"
+            "No preferences found for user",
         )
 
     # Clean up dependency overrides
-    app.dependency_overrides = {} 
+    app.dependency_overrides = {}
