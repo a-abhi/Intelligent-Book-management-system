@@ -8,7 +8,12 @@ services:
       - .:/app
     working_dir: /app
     command: >
-      bash -c "chmod +x setup_requirements.sh && ./setup_requirements.sh"
+      bash -c "cp /app/requirements.txt /app/book_service/requirements.txt && \
+               cp /app/requirements.txt /app/review_service/requirements.txt && \
+               cp /app/requirements.txt /app/llama3_service/requirements.txt && \
+               cp /app/requirements.txt /app/recommendation_service/requirements.txt && \
+               cp /app/requirements.txt /app/shared_service/requirements.txt && \
+               chmod +x /app/setup_requirements.sh && /app/setup_requirements.sh"
 
   # Database
   postgres:
