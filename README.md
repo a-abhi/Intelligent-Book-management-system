@@ -35,6 +35,8 @@ The system consists of five microservices:
    - Manages shared resources and utilities
    - Handles cross-service communication
 
+Refer [HLD](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/ERD-HLD.md) for more details.
+
 ## Prerequisites
 
 - Python 3.8+
@@ -51,19 +53,14 @@ git clone https://github.com/yourusername/intelligent-book-management.git
 cd intelligent-book-management
 ```
 
-2. Set up environment variables (optional):
-```bash
-cp .env.example .env
-# Edit .env with your configuration
-```
 
-3. Run the setup script:
+2. Run the setup script:
 ```bash
 chmod +x setup_requirements.sh
 ./setup_requirements.sh
 ```
 
-4. Start the services using Docker Compose:
+3. Start the services using Docker Compose:
 ```bash
 docker-compose up -d
 ```
@@ -72,14 +69,18 @@ docker-compose up -d
 
 ### Using Docker Compose (Recommended)
 ```bash
+chmod +x setup_requirements.sh
+chmod +x init-multiple-dbs.sh
+chmod +x ollama-entrypoint.sh
 # Start all services
-docker-compose up -d
+docker-compose up -d --build
 
 # View logs
-docker-compose logs -f
+docker-compose logs -f <service-name>
 
 # Stop all services
 docker-compose down
+docker-compose down -v
 ```
 
 ### Manual Setup (Development)
@@ -161,14 +162,6 @@ The CI pipeline includes the following steps for each service:
 4. **Code Linting**: Runs Flake8 for code quality checks
 5. **Docker Build**: Builds service Docker images
 6. **Testing**: Runs pytest in Docker containers
-
-### Service Matrix
-The CI runs in parallel for all services:
-- Book Service
-- LLaMA3 Service
-- Recommendation Service
-- Review Service
-- Shared Service
 
 ### Viewing CI Results
 - Check the "Actions" tab in the GitHub repository
