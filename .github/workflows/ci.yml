@@ -43,11 +43,13 @@ jobs:
         run: |
           cp requirements.txt ${{ matrix.service }}/
 
-      - name: Build Docker images with Docker Compose
+      - name: Build and test Docker image
         run: |
-          docker compose build --no-cache ${{ matrix.service }}
-          docker compose up -d ${{ matrix.service }}
-
-      - name: Run Pytest for ${{ matrix.service }}
-        run: |
-          docker run --rm intelligentbookmanagementsystem_${{ matrix.service }} pytest
+          # Build the image
+          docker compose build ${{ matrix.service }}
+          
+          # Verify the image exists
+          docker images | grep ${{ matrix.service }}
+          
+          # Run the tests
+          docker compose run --rm ${{ matrix.service }} pytest
