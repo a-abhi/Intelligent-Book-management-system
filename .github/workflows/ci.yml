@@ -32,7 +32,7 @@ jobs:
         run: pip install flake8
 
       - name: Lint ${{ matrix.service }} with Flake8
-        run: flake8 ${{ matrix.service }}/
+        run: flake8 --config=${{ matrix.service }}/.flake8 ${{ matrix.service }}/
 
       - name: Build Docker image for ${{ matrix.service }}
         run: |
