@@ -42,7 +42,7 @@ jobs:
       - name: Copy requirements.txt to container directory
         run: |
           mkdir -p ${{ matrix.service }}/container
-          cp ${{ matrix.service }}/requirements.txt ${{ matrix.service }}/container/
+          cp requirements.txt ${{ matrix.service }}/container/
 
       - name: Build Docker images with Docker Compose
         run: |
