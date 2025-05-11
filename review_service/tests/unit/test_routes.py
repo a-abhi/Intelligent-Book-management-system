@@ -83,7 +83,7 @@ def test_create_review_success(client):
 
 def test_create_review_invalid_rating(client):
     mock_db_session = AsyncMock()
-    mock_user_id = uuid.uuid4()
+    mock_user_id = 123
     book_id = 1
 
     app.dependency_overrides[get_db] = lambda: mock_db_session
