@@ -34,10 +34,9 @@ jobs:
       - name: Lint ${{ matrix.service }} with Flake8
         run: flake8 --config=${{ matrix.service }}/.flake8 ${{ matrix.service }}/
 
-      - name: Build Docker image for ${{ matrix.service }}
-        run: |
-          docker build -t ${{ matrix.service }}-image -f ${{ matrix.service }}/Dockerfile ./${{ matrix.service }}
+      - name: Build Docker images with Docker Compose
+        run: docker-compose build ${{ matrix.service }}
 
       - name: Run Pytest for ${{ matrix.service }}
         run: |
-          docker run --rm ${{ matrix.service }}-image pytest
+          docker run --rm intelligentbookmanagementsystem_${{ matrix.service }} pytest
