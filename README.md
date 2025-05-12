@@ -35,7 +35,7 @@ The system consists of five microservices:
    - Manages shared resources and utilities
    - Handles cross-service communication
 
-Refer [HLD](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/ERD-HLD.md) for more details.
+Refer [HLD](https://github.com/a-abhi/Intelligent-Book-management-system/blob/main/docs/ERD-HLD.md) for more details.
 
 ## Prerequisites
 
